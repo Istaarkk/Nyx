@@ -1,0 +1,29 @@
+{
+  "metadata": {
+    "filename": "babyfuscation",
+    "filesize": 17080,
+    "hashes": {
+      "md5": "4de69556da3efd9c3602ecea9e186c55",
+      "sha1": "43da7463b4c17f73075642367e8003dcbaa80158",
+      "sha256": "e77392a77f1813585a950b486b89e7da42cb4b9015365aee062236e11f1df213"
+    },
+    "analysis_timestamp": "2025-04-18T19:19:39.066667"
+  },
+  "tools": {
+    "file": {
+      "stdout": "/app/uploads/bda67c79-ddd0-4590-aa27-8175bc49c063/babyfuscation: ELF 64-bit LSB shared object, x86-64, version 1 (SYSV), dynamically linked, interpreter /lib64/ld-linux-x86-64.so.2, BuildID[sha1]=80e2baa56f7f889a55c075839bfbb875d883476b, for GNU/Linux 3.2.0, not stripped\n",
+      "stderr": "",
+      "returncode": 0
+    },
+    "strings": {
+      "stdout": "/lib64/ld-linux-x86-64.so.2\nmgUa\nfgets\nstdin\nputs\n__libc_start_main\n__cxa_finalize\nlibc.so.6\nGLIBC_2.2.5\nGLIBC_2.34\n_ITM_deregisterTMCloneTable\n__gmon_start__\n_ITM_registerTMCloneTable\nPTE1\nu+UH\n9*3$\"\n,6'0b6*'b$.#%xbB\nP|aavpg23J|f4ev3u|f}w3g{v3u\n`EXYP\nQ[VP\nVPV^Y\nGCC: (Ubuntu 13.3.0-6ubuntu2~24.04) 13.3.0\nScrt1.o\n__abi_tag\ncrtstuff.c\nderegister_tm_clones\n__do_global_dtors_aux\ncompleted.0\n__do_global_dtors_aux_fini_array_entry\nframe_dummy\n__frame_dummy_init_array_entry\nbabyfuscation.c\n__FRAME_END__\n_DYNAMIC\n__GNU_EH_FRAME_HDR\n_GLOBAL_OFFSET_TABLE_\nU94y77bvL3HfcnwcAc3UA9MJTvcwjP4j\n__libc_start_main@GLIBC_2.34\n_ITM_deregisterTMCloneTable\na93rEUcvwf4Ec9KHKqzFx7wL\nputs@GLIBC_2.2.5\nstdin@GLIBC_2.2.5\n_edata\n_fini\nkRvUaKbhJewpX4HHFuMuPkNWc7xJ4cUV\nfaubPTXHmhV4vfgEpzjqfMRjJ3qunsq9\nfgets@GLIBC_2.2.5\n__data_start\n__gmon_start__\n__dso_handle\n_IO_stdin_used\n_end\naixxj3qmUvFTqgqLodmuaEap\nwKtyPoT4WdyrkVzhvYUfvqo3M9iPVMd3\njMunhwoW4bRqeCdJfXvfNrRm\n__bss_start\nmain\nVsvYbpipYYgRoCeFtoxhtAmdFuNu3WvV\nLdUonKvqsjsJu4JdfAgtgbU9\n__TMC_END__\n_ITM_registerTMCloneTable\nVYeXkgjLLMrczyw7i7dJPkyAbxqgCahe\n__cxa_finalize@GLIBC_2.2.5\n_init\nVakkEeHbtHMpNqXPMkadR4v7K\nouPrjEhgqPVNXCqchuzw7WTWLHnkbwqj\n.symtab\n.strtab\n.shstrtab\n.interp\n.note.gnu.property\n.note.gnu.build-id\n.note.ABI-tag\n.gnu.hash\n.dynsym\n.dynstr\n.gnu.version\n.gnu.version_r\n.rela.dyn\n.rela.plt\n.init\n.plt.got\n.plt.sec\n.text\n.fini\n.rodata\n.eh_frame_hdr\n.eh_frame\n.init_array\n.fini_array\n.dynamic\n.data\n.bss\n.comment\n",
+      "stderr": "",
+      "returncode": 0
+    },
+    "binwalk": {
+      "stdout": "\nDECIMAL       HEXADECIMAL     DESCRIPTION\n--------------------------------------------------------------------------------\n0             0x0             ELF, 64-bit LSB shared object, AMD x86-64, version 1 (SYSV)\n\n",
+      "stderr": "",
+      "returncode": 0
+    }
+  }
+}

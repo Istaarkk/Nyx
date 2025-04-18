@@ -1,0 +1,39 @@
+version: '3.8'
+
+services:
+  backend:
+    image: mint-analyzer:latest
+    ports:
+      - "8000:8000"
+      - "5901:5901"
+      - "6080:6080"
+    volumes:
+      - ../uploads:/input
+      - ../results:/output
+      - ../backend:/app
+      - /var/run/docker.sock:/var/run/docker.sock
+    command: ["sh", "-c", "cd /app && pip install -r requirements.txt && uvicorn main:app --host 0.0.0.0 --port 8000 --reload"]
+    restart: unless-stopped
+    networks:
+      - app-network
+
+  frontend:
+    image: node:18-alpine
+    working_dir: /app
+    volumes:
+      - ../frontend:/app
+    ports:
+      - "3000:3000"
+    command: sh -c "npm install && npm start"
+    environment:
+      - NODE_ENV=development
+      - CHOKIDAR_USEPOLLING=true
+    restart: unless-stopped
+    networks:
+      - app-network
+
+networks:
+  app-network:
+    driver: bridge
+
+# Les conteneurs d'analyse sont créés dynamiquement par le backend 
