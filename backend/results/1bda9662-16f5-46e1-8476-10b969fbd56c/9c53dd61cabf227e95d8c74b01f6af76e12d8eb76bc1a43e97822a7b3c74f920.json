@@ -1,0 +1,29 @@
+{
+  "metadata": {
+    "filename": "test.elf",
+    "filesize": 137,
+    "hashes": {
+      "md5": "402071b687f4357d60463594209a0683",
+      "sha1": "e0bd867e3d5eb0aa1a7b438b13beceb10abb7116",
+      "sha256": "9c53dd61cabf227e95d8c74b01f6af76e12d8eb76bc1a43e97822a7b3c74f920"
+    },
+    "analysis_timestamp": "2025-04-19T08:36:27.706135"
+  },
+  "tools": {
+    "file": {
+      "stdout": "/app/uploads/1bda9662-16f5-46e1-8476-10b969fbd56c/test.elf: ELF 64-bit LSB executable, x86-64, version 1 (SYSV), statically linked, no section header\n",
+      "stderr": "",
+      "returncode": 0
+    },
+    "strings": {
+      "stdout": "",
+      "stderr": "",
+      "returncode": 0
+    },
+    "binwalk": {
+      "stdout": "\nDECIMAL       HEXADECIMAL     DESCRIPTION\n--------------------------------------------------------------------------------\n0             0x0             ELF, 64-bit LSB executable, AMD x86-64, version 1 (SYSV)\n\n",
+      "stderr": "",
+      "returncode": 0
+    }
+  }
+}

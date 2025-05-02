@@ -1,0 +1,29 @@
+{
+  "metadata": {
+    "filename": "test_asm.nasm",
+    "filesize": 503,
+    "hashes": {
+      "md5": "22debadd13586e2eb5143e96733e4b3a",
+      "sha1": "9e96931ec6c6487153ac19539ff225dc18df3a00",
+      "sha256": "fac16ef6950a47edc8f9a80ea6bef3c00f516e3cce2ce70e4cfca331020dbc17"
+    },
+    "analysis_timestamp": "2025-04-19T08:32:08.905123"
+  },
+  "tools": {
+    "file": {
+      "stdout": "/app/uploads/dfe05cd2-a832-4921-932c-5103e38319eb/test_asm.nasm: ASCII text\n",
+      "stderr": "",
+      "returncode": 0
+    },
+    "strings": {
+      "stdout": "section .text\nglobal _start\n_start:\n    ; Write \"Hello, World!\" to stdout\n    mov rax, 1           ; syscall number for sys_write\n    mov rdi, 1           ; file descriptor 1 is stdout\n    mov rsi, hello       ; pointer to message\n    mov rdx, hello_len   ; message length\n    syscall\n    ; Exit with status code 0\n    mov rax, 60          ; syscall number for sys_exit\n    xor rdi, rdi         ; status code 0\n    syscall\nsection .data\n    hello: db \"Hello, World!\", 10\n    hello_len: equ $ - hello \n",
+      "stderr": "",
+      "returncode": 0
+    },
+    "binwalk": {
+      "stdout": "\nDECIMAL       HEXADECIMAL     DESCRIPTION\n--------------------------------------------------------------------------------\n\n",
+      "stderr": "",
+      "returncode": 0
+    }
+  }
+}

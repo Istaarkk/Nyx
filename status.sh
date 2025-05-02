@@ -14,3 +14,15 @@ docker compose -f docker/compose.yml ps
 
 echo -e "\n${YELLOW}Logs récents:${NC}"
 docker compose -f docker/compose.yml logs --tail=20
+
+# Vérification de shellinabox
+echo -e "\n${YELLOW}État de shellinabox:${NC}"
+docker exec docker-backend-1 ps aux | grep shellinabox || echo "shellinabox n'est pas en cours d'exécution"
+
+# Possibilité de redémarrer shellinabox
+if [ "$1" == "--fix-shellinabox" ]; then
+    echo -e "\n${YELLOW}Redémarrage de shellinabox...${NC}"
+    docker exec -u root docker-backend-1 bash -c "pkill shellinaboxd || true"
+    docker exec -u root docker-backend-1 bash -c "shellinaboxd --no-beep --disable-ssl --background -s '/:nobody:nogroup:/:/bin/bash -l' --port=4200 --css=/etc/shellinabox/options-enabled/00_White\ On\ Black.css"
+    echo -e "${GREEN}Shellinabox redémarré.${NC}"
+fi

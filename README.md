@@ -1,116 +1,156 @@
-# Plateforme d'Analyse de Malwares
+# Plateforme d'Analyse de Malware (Nyx)
 
-Une plateforme d'analyse de fichiers binaires potentiellement malveillants, avec une interface web et un environnement isolé dans Docker.
+Cette plateforme permet d'analyser des fichiers potentiellement malveillants et d'interagir avec un environnement sandbox via un terminal web.
 
 ## Prérequis
 
-- Docker
-- Docker Compose
+- Docker et Docker Compose
+- Git
+- Un environnement Linux (Ubuntu/Debian recommandé)
 
-## Installation et démarrage
+## Installation rapide
 
-1. Clonez ce dépôt
-2. Exécutez le script de démarrage :
+Clonez le dépôt et naviguez dans le répertoire du projet :
+
+```bash
+git clone <URL_DU_REPO> nyx
+cd nyx
+```
+
+## Démarrage des services
+
+### 1. Démarrage complet (méthode recommandée)
+
+Utilisez le script `run.sh` pour démarrer tous les services en une seule étape :
 
 ```bash
 chmod +x run.sh
 ./run.sh
 ```
 
-Le script va :
-- Vérifier les prérequis
-- Créer les répertoires nécessaires
-- Construire l'image Docker
-- Démarrer les services backend et frontend
+Ce script :
+- Arrête les conteneurs existants
+- Démarre les services backend et frontend
+- Configure le terminal interactif
+- Vérifie que tous les services sont opérationnels
 
-## Accès à la plateforme
+### 2. Démarrage manuel
 
-Une fois les services démarrés, vous pouvez accéder à :
+Si vous préférez démarrer les services manuellement :
 
-- **Interface Web** : http://localhost:3000
+```bash
+# Démarrage des conteneurs
+docker compose -f docker/compose.yml down
+docker compose -f docker/compose.yml up -d
+
+# Configuration du terminal interactif (sans authentification)
+chmod +x fix_terminal_no_auth.sh
+./fix_terminal_no_auth.sh
+```
+
+## URL des services
+
+Une fois les services démarrés, vous pouvez accéder aux différentes interfaces :
+
+- **Frontend** : http://localhost:3000
 - **API Backend** : http://localhost:8000
+- **Terminal Web** : http://localhost:4200
 
-## Utilisation de la plateforme
+## Utilisation des fonctionnalités
 
-### 1. Analyser un fichier
+### Analyser un fichier
 
-1. Accédez à l'interface web (http://localhost:3000)
-2. Dans la section "Nouvelle analyse", cliquez sur la zone "Sélectionner un fichier à analyser"
-3. Choisissez un fichier binaire sur votre ordinateur
-4. Cliquez sur le bouton "Lancer l'analyse"
-5. La plateforme va télécharger le fichier et lancer l'analyse
-6. Vous pouvez suivre l'avancement dans la section "Analyses récentes"
-7. Une fois l'analyse terminée (statut "completed"), cliquez sur l'analyse pour voir les résultats
+1. Accédez à l'interface web via http://localhost:3000
+2. Utilisez le formulaire d'upload pour charger un fichier
+3. Attendez que l'analyse soit terminée
+4. Consultez les résultats dans l'interface
 
-### 2. Via l'API REST
+### API REST
 
-Vous pouvez également utiliser l'API REST directement :
+L'API expose plusieurs endpoints :
 
-**Télécharger un fichier pour analyse :**
+- `GET /health` - Vérification de l'état de l'API
+- `POST /upload` - Upload de fichier pour analyse
+- `GET /files` - Liste des analyses
+- `GET /files/{file_id}` - Détails d'une analyse
+- `GET /files/{file_id}/results` - Résultats d'une analyse
+- `GET /files/{file_id}/assembly` - Code assembleur d'un fichier analysé
+- `POST /files/{file_id}/restart` - Redémarrer une analyse
+
+### Session interactive
+
+#### Méthode 1 : Via l'interface web
+
+1. Accédez à l'interface web via http://localhost:3000
+2. Cliquez sur "Session interactive"
+3. Un terminal web s'ouvrira automatiquement
+
+#### Méthode 2 : Accès direct au terminal
+
+Accédez directement au terminal web via http://localhost:4200
+
+**Note:** Le terminal web est configuré sans authentification pour un accès direct. Vous obtenez automatiquement les droits root dans le conteneur.
+
+#### Méthode 3 : Via l'API
+
+Vous pouvez démarrer une session interactive via l'API :
+
 ```bash
-curl -X POST -F "file=@chemin/vers/votre/fichier" http://localhost:8000/upload
+curl -X POST http://localhost:8000/interactive
 ```
 
-**Récupérer la liste des analyses :**
+Ensuite, récupérez les informations de connexion :
+
 ```bash
-curl http://localhost:8000/files
+curl http://localhost:8000/files/{session_id}/vnc
 ```
-
-**Récupérer les détails d'une analyse spécifique :**
-```bash
-curl http://localhost:8000/files/{id_analyse}
-```
-
-**Récupérer les résultats d'une analyse :**
-```bash
-curl http://localhost:8000/files/{id_analyse}/results
-```
-
-### 3. Démarrer une session interactive
-
-Si vous souhaitez analyser un fichier de manière interactive :
-
-1. Cliquez sur le bouton "Démarrer une session interactive"
-2. Attendez que la session soit initialisée
-3. Utilisez l'interface VNC dans votre navigateur (http://localhost:6080/vnc.html)
-4. Vous pouvez maintenant analyser des fichiers dans un environnement Linux Mint isolé
-
-## Format des résultats
-
-Les résultats d'analyse comprennent :
-
-- **Métadonnées** : nom du fichier, taille, date d'analyse, etc.
-- **Hashes** : MD5, SHA1, SHA256
-- **Résultats des outils** : 
-  - Résultat de la commande `file`
-  - Extraction des chaînes de caractères
-  - Analyse avec Binwalk
-  - Désassemblage basique avec Radare2
 
 ## Résolution des problèmes
 
-Si vous rencontrez des problèmes lors de l'utilisation de la plateforme :
+### Si le terminal web ne fonctionne pas
 
-1. Vérifiez que les services Docker sont en cours d'exécution :
+Exécutez le script de réparation du terminal :
+
 ```bash
-./status.sh
+./fix_terminal_no_auth.sh
 ```
 
-2. Consultez les logs pour identifier les erreurs :
+### Si le backend ne démarre pas
+
+Exécutez le script de réparation du backend :
+
 ```bash
-docker compose -f docker/compose.yml logs
+./fix_all.sh
 ```
 
-3. Redémarrez les services si nécessaire :
+### Accès direct au conteneur backend
+
 ```bash
-./shutdown.sh
-./run.sh
+docker exec -it docker-backend-1 bash
 ```
 
-## Arrêt de la plateforme
-
-Pour arrêter tous les services :
+### Vérifier les logs
 
 ```bash
-./shutdown.sh
-``` 
+# Logs du backend
+docker logs docker-backend-1
+
+# Logs du frontend
+docker logs docker-frontend-1
+```
+
+## Structure des fichiers
+
+- `backend/` - Code du service backend (FastAPI)
+- `frontend/` - Code du service frontend (React)
+- `docker/` - Fichiers Docker et Docker Compose
+- `uploads/` - Dossier pour les fichiers téléchargés
+- `results/` - Dossier pour les résultats d'analyse
+
+## Information de sécurité
+
+Cette plateforme est conçue pour un environnement de test. Pour une utilisation en production :
+
+1. Configurez correctement les authentifications
+2. Limitez les accès réseau
+3. Isolez davantage les conteneurs avec une configuration Docker appropriée 

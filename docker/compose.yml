@@ -7,6 +7,7 @@ services:
       - "8000:8000"
       - "5901:5901"
       - "6080:6080"
+      - "4200:4200"
     volumes:
       - ../uploads:/input
       - ../results:/output

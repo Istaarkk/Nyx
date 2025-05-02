@@ -1,0 +1,29 @@
+{
+  "metadata": {
+    "filename": "ch25.bin",
+    "filesize": 12751,
+    "hashes": {
+      "md5": "c952f10239cd6cfcfe3bf0a2c0224503",
+      "sha1": "a0e453d566c6c2642f1ed898fc8be2c091fbb08d",
+      "sha256": "d2709775affd5f309c8f7f2ec4506b24fb612b638c4e324025caf58a8a197b0b"
+    },
+    "analysis_timestamp": "2025-05-02T15:28:22.933211"
+  },
+  "tools": {
+    "file": {
+      "stdout": "/app/uploads/d44b4029-ea20-456b-93dc-8933d40feb53/ch25.bin: ELF 32-bit LSB executable, Intel 80386, version 1 (SYSV), dynamically linked, interpreter /lib/ld-linux.so.2, for GNU/Linux 2.6.24, BuildID[sha1]=38a418f97a019e3a6108932d4a7196637e368a88, not stripped\n",
+      "stderr": "",
+      "returncode": 0
+    },
+    "strings": {
+      "stdout": "/lib/ld-linux.so.2\nCyIk\nlibstdc++.so.6\n__gmon_start__\n_Jv_RegisterClasses\n_ITM_deregisterTMCloneTable\n_ITM_registerTMCloneTable\n__pthread_key_create\n_ZNSsixEj\n_ZSt4endlIcSt11char_traitsIcEERSt13basic_ostreamIT_T0_ES6_\n_ZSt4cout\n_ZNSaIcED1Ev\n_ZNSspLEc\n_ZSt4cerr\n_ZNKSs7compareEPKc\n_ZStlsISt11char_traitsIcEERSt13basic_ostreamIcT_ES5_PKc\n_ZNSsC1EPKcRKSaIcE\n_ZNSt8ios_base4InitC1Ev\n_ZNSsD1Ev\n_ZNKSs6lengthEv\n_ZNSt8ios_base4InitD1Ev\n_ZNSolsEPFRSoS_E\n__gxx_personality_v0\n_ZNSaIcEC1Ev\nlibgcc_s.so.1\n_Unwind_Resume\nlibc.so.6\n_IO_stdin_used\n__cxa_atexit\n__libc_start_main\nGCC_3.0\nCXXABI_1.3\nGLIBCXX_3.4\nGLIBC_2.0\nGLIBC_2.1.3\nPTRh\n,[^_]\n[^_]\nusage : \n password\nBravo, tu peux valider en utilisant ce mot de passe...\nCongratz. You can validate with this password...\nPassword incorrect.\n;*2$\"\nzPLR\nGCC: (Ubuntu 4.8.4-2ubuntu1~14.04.1) 4.8.4\nGCC: (Ubuntu 4.8.2-19ubuntu1) 4.8.2\n.symtab\n.strtab\n.shstrtab\n.interp\n.note.ABI-tag\n.note.gnu.build-id\n.gnu.hash\n.dynsym\n.dynstr\n.gnu.version\n.gnu.version_r\n.rel.dyn\n.rel.plt\n.init\n.text\n.fini\n.rodata\n.eh_frame_hdr\n.eh_frame\n.gcc_except_table\n.init_array\n.fini_array\n.jcr\n.dynamic\n.got\n.got.plt\n.data\n.bss\n.comment\ncrtstuff.c\n__JCR_LIST__\nderegister_tm_clones\nregister_tm_clones\n__do_global_dtors_aux\ncompleted.6591\n__do_global_dtors_aux_fini_array_entry\nframe_dummy\n__frame_dummy_init_array_entry\ncrackme.cpp\n_ZStL8__ioinit\n_Z41__static_initialization_and_destruction_0ii\n_GLOBAL__sub_I__Z5ploufSsSs\n_ZZL18__gthread_active_pvE20__gthread_active_ptr\n__FRAME_END__\n__JCR_END__\n_GLOBAL_OFFSET_TABLE_\n__init_array_end\n__init_array_start\n_DYNAMIC\ndata_start\n__cxa_atexit@@GLIBC_2.1.3\n__libc_csu_fini\n_start\n_ZNSspLEc@@GLIBCXX_3.4\n__gmon_start__\n_Jv_RegisterClasses\n_fp_hw\n_ZNSsixEj@@GLIBCXX_3.4\n_fini\n_ZNSt8ios_base4InitC1Ev@@GLIBCXX_3.4\n_ZSt4cerr@@GLIBCXX_3.4\n_ZSteqIcSt11char_traitsIcESaIcEEbRKSbIT_T0_T1_EPKS3_\n__libc_start_main@@GLIBC_2.0\n_ZNKSs6lengthEv@@GLIBCXX_3.4\n_ZNSt8ios_base4InitD1Ev@@GLIBCXX_3.4\n_ITM_deregisterTMCloneTable\n_ZStlsISt11char_traitsIcEERSt13basic_ostreamIcT_ES5_PKc@@GLIBCXX_3.4\n_IO_stdin_used\n_ZNSsD1Ev@@GLIBCXX_3.4\n_ITM_registerTMCloneTable\n__data_start\n__x86.get_pc_thunk.bx\n_ZNKSs7compareEPKc@@GLIBCXX_3.4\n__TMC_END__\n_ZNSsC1EPKcRKSaIcE@@GLIBCXX_3.4\n_ZSt4cout@@GLIBCXX_3.4\n__dso_handle\n__libc_csu_init\n__bss_start\n_ZNSaIcED1Ev@@GLIBCXX_3.4\n__pthread_key_create\n_end\n_ZNSolsEPFRSoS_E@@GLIBCXX_3.4\n_ZSt4endlIcSt11char_traitsIcEERSt13basic_ostreamIT_T0_ES6_@@GLIBCXX_3.4\n_edata\n_ZNSaIcEC1Ev@@GLIBCXX_3.4\n__gxx_personality_v0@@CXXABI_1.3\n_Unwind_Resume@@GCC_3.0\n_Z5ploufSsSs\nmain\n_init\n",
+      "stderr": "",
+      "returncode": 0
+    },
+    "binwalk": {
+      "stdout": "\nDECIMAL       HEXADECIMAL     DESCRIPTION\n--------------------------------------------------------------------------------\n0             0x0             ELF, 32-bit LSB executable, Intel 80386, version 1 (SYSV)\n\n",
+      "stderr": "",
+      "returncode": 0
+    }
+  }
+}

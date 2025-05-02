@@ -220,7 +220,7 @@ function AnalysisDetails({ fileId }) {
   if (loadingAnalysis) return <p>Chargement des détails...</p>;
   if (!analysis) return <p>Aucune analyse trouvée avec cet ID</p>;
   
-  // Si c'est une session interactive, afficher l'interface VNC
+  // Si c'est une session interactive, afficher l'interface du terminal
   if (analysis?.analysis_type === 'interactive') {
     return (
       <div className="space-y-4">
@@ -234,7 +234,7 @@ function AnalysisDetails({ fileId }) {
           </div>
         </div>
         
-        <VncSession fileId={fileId} />
+        <TerminalSession fileId={fileId} />
       </div>
     );
   }
@@ -248,7 +248,7 @@ function AnalysisDetails({ fileId }) {
           <p><strong>Statut:</strong> {analysis.status}</p>
           <p><strong>Date d'upload:</strong> {new Date(analysis.upload_time).toLocaleString()}</p>
           {analysis.completion_time && (
-            <p><strong>Terminé le:</strong> {new Date(analysis.completion_time).toLocaleString()}</p>
+            <p><strong>Date de complétion:</strong> {new Date(analysis.completion_time).toLocaleString()}</p>
           )}
           {analysis.file_hash && (
             <p><strong>SHA256:</strong> {analysis.file_hash}</p>
@@ -256,126 +256,213 @@ function AnalysisDetails({ fileId }) {
         </div>
       </div>
       
-      <div className="flex space-x-2">
-        <button
-          onClick={() => restartMutation.mutate()}
-          disabled={restartMutation.isLoading}
-          className="bg-blue-600 text-white px-3 py-1 rounded text-sm hover:bg-blue-700"
-        >
-          {restartMutation.isLoading ? 'Redémarrage...' : 'Relancer l\'analyse'}
-        </button>
-      </div>
-      
-      {analysis.status === 'completed' && (
-        <div className="mt-4">
-          <h4 className="font-semibold mb-2">Résultats</h4>
-          {loadingResults ? (
-            <p>Chargement des résultats...</p>
-          ) : results ? (
-            <div className="mt-2 space-y-4">
-              <div>
-                <h5 className="font-medium text-sm">Métadonnées</h5>
-                <pre className="bg-gray-100 p-2 rounded text-xs overflow-auto mt-1">
-                  {JSON.stringify(results.metadata, null, 2)}
-                </pre>
-              </div>
-              
-              {results.tools && Object.keys(results.tools).map(tool => (
-                <div key={tool}>
-                  <h5 className="font-medium text-sm">Résultats de {tool}</h5>
-                  <pre className="bg-gray-100 p-2 rounded text-xs overflow-auto mt-1">
-                    {results.tools[tool].stdout}
-                  </pre>
-                  {results.tools[tool].stderr && (
-                    <pre className="bg-gray-200 p-2 rounded text-xs overflow-auto mt-1 text-red-600">
-                      {results.tools[tool].stderr}
-                    </pre>
-                  )}
-                </div>
-              ))}
-            </div>
-          ) : (
-            <p>Impossible de charger les résultats.</p>
-          )}
+      {analysis.status === 'failed' && (
+        <div className="bg-red-100 p-3 rounded text-red-800 text-sm">
+          L'analyse a échoué. Vous pouvez la relancer.
+          <button
+            onClick={() => restartMutation.mutate()}
+            className="ml-2 bg-red-500 hover:bg-red-600 text-white px-2 py-1 rounded text-xs"
+          >
+            Relancer
+          </button>
         </div>
       )}
       
-      {analysis.status === 'failed' && (
-        <div className="mt-4 text-red-600">
-          L'analyse a échoué. Veuillez réessayer ou vérifier les logs du serveur.
+      {analysis.status === 'pending' && (
+        <div className="bg-yellow-100 p-3 rounded text-yellow-800 text-sm">
+          En attente de traitement...
         </div>
       )}
       
       {analysis.status === 'running' && (
-        <div className="mt-4">
-          <div className="animate-pulse flex space-x-4">
-            <div className="flex-1 space-y-4 py-1">
-              <div className="h-4 bg-gray-200 rounded w-3/4"></div>
-              <div className="space-y-2">
-                <div className="h-4 bg-gray-200 rounded"></div>
-                <div className="h-4 bg-gray-200 rounded w-5/6"></div>
-              </div>
-            </div>
+        <div className="bg-blue-100 p-3 rounded text-blue-800 text-sm">
+          Analyse en cours...
+        </div>
+      )}
+      
+      {analysis.status === 'completed' && (
+        <div className="space-y-4">
+          <div className="flex space-x-2">
+            <button
+              onClick={() => document.getElementById('results').scrollIntoView({ behavior: 'smooth' })}
+              className="bg-blue-100 hover:bg-blue-200 text-blue-800 px-3 py-1 rounded text-sm"
+            >
+              Résultats
+            </button>
+            <button
+              onClick={() => document.getElementById('assembly').scrollIntoView({ behavior: 'smooth' })}
+              className="bg-green-100 hover:bg-green-200 text-green-800 px-3 py-1 rounded text-sm"
+            >
+              Code Assembleur
+            </button>
           </div>
-          <p className="text-blue-600 mt-2">Analyse en cours...</p>
+          
+          <div id="results">
+            <h4 className="font-semibold text-md mb-2">Résultats</h4>
+            {loadingResults ? (
+              <p>Chargement des résultats...</p>
+            ) : results ? (
+              <ResultsView results={results} />
+            ) : (
+              <p>Aucun résultat disponible</p>
+            )}
+          </div>
+          
+          <div id="assembly" className="mt-6">
+            <h4 className="font-semibold text-md mb-2">Code Assembleur</h4>
+            <AssemblyView fileId={fileId} />
+          </div>
         </div>
       )}
     </div>
   );
 }
 
-// Composant pour la session VNC interactive
-function VncSession({ fileId }) {
-  const { data: vncInfo, isLoading, isError } = useQuery(
-    ['vnc', fileId],
-    () => axios.get(`${API_URL}/files/${fileId}/vnc`).then(res => res.data),
-    { 
-      refetchInterval: false,
-      retry: 3
-    }
-  );
-  
-  const [connected, setConnected] = useState(false);
+// Composant pour afficher le code assembleur
+function AssemblyView({ fileId }) {
+  const [assembly, setAssembly] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
   
   useEffect(() => {
-    if (vncInfo && vncInfo.novnc_port) {
-      setConnected(true);
-    }
-  }, [vncInfo]);
+    setLoading(true);
+    axios.get(`${API_URL}/files/${fileId}/assembly`)
+      .then(response => {
+        setAssembly(response.data);
+        setLoading(false);
+      })
+      .catch(err => {
+        console.error("Erreur lors du chargement du code assembleur:", err);
+        setError(err.response?.data?.detail || err.message);
+        setLoading(false);
+      });
+  }, [fileId]);
   
-  if (isLoading) return <p>Chargement des informations de connexion...</p>;
-  if (isError) return <p className="text-red-600">Erreur: Impossible de récupérer les infos de connexion</p>;
-  
-  if (!vncInfo || !vncInfo.novnc_port) {
-    return <p>Informations de connexion non disponibles</p>;
-  }
-  
-  // URL du serveur noVNC
-  const novncUrl = `http://${vncInfo.host}:${vncInfo.novnc_port}/vnc.html?password=${vncInfo.vnc_password}&autoconnect=true`;
+  if (loading) return <p>Chargement du code assembleur...</p>;
+  if (error) return <p className="text-red-600">Erreur: {error}</p>;
+  if (!assembly) return <p>Aucun code assembleur disponible</p>;
   
   return (
-    <div className="space-y-4">
-      <div className="flex justify-between items-center">
-        <h3 className="font-bold">Session Interactive</h3>
-        <span className={`px-2 py-1 text-xs rounded-full ${connected ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
-          {connected ? 'Connecté' : 'Déconnecté'}
-        </span>
+    <div className="space-y-2">
+      <div className="bg-gray-100 p-2 rounded">
+        <p><strong>Type de fichier détecté:</strong> {assembly.file_type}</p>
+      </div>
+      <div className="bg-gray-800 p-4 rounded text-white overflow-auto max-h-96">
+        <pre className="text-xs font-mono whitespace-pre-wrap">{assembly.assembly_code}</pre>
+      </div>
+    </div>
+  );
+}
+
+// Affichage des résultats de l'analyse
+function ResultsView({ results }) {
+  return (
+    <div className="mt-2 space-y-4">
+      <div>
+        <h5 className="font-medium text-sm">Métadonnées</h5>
+        <pre className="bg-gray-100 p-2 rounded text-xs overflow-auto mt-1">
+          {JSON.stringify(results.metadata, null, 2)}
+        </pre>
       </div>
       
-      <div className="border rounded overflow-hidden" style={{ height: '600px' }}>
+      {results.tools && Object.keys(results.tools).map(tool => (
+        <div key={tool}>
+          <h5 className="font-medium text-sm">Résultats de {tool}</h5>
+          <pre className="bg-gray-100 p-2 rounded text-xs overflow-auto mt-1">
+            {results.tools[tool].stdout}
+          </pre>
+          {results.tools[tool].stderr && (
+            <pre className="bg-gray-200 p-2 rounded text-xs overflow-auto mt-1 text-red-600">
+              {results.tools[tool].stderr}
+            </pre>
+          )}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+// VncSession renommé en TerminalSession et modifié pour utiliser shellinabox
+function TerminalSession({ fileId }) {
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [connectionInfo, setConnectionInfo] = useState(null);
+  
+  useEffect(() => {
+    let mounted = true;
+    const checkStatus = async () => {
+      try {
+        const response = await axios.get(`${API_URL}/files/${fileId}/vnc`);
+        if (mounted) {
+          setConnectionInfo(response.data);
+          if (response.data.status === 'running') {
+            setLoading(false);
+          } else if (response.data.status === 'error') {
+            setError(response.data.message || 'Erreur lors du démarrage de la session');
+            setLoading(false);
+          } else {
+            // Si toujours en démarrage, vérifier à nouveau dans 2 secondes
+            setTimeout(checkStatus, 2000);
+          }
+        }
+      } catch (error) {
+        if (mounted) {
+          setError(`Erreur lors de la récupération des informations de connexion: ${error.message}`);
+          setLoading(false);
+        }
+      }
+    };
+    
+    checkStatus();
+    
+    return () => {
+      mounted = false;
+    };
+  }, [fileId]);
+  
+  if (loading) {
+    return (
+      <div className="p-4 bg-gray-100 rounded text-center">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-800 mx-auto mb-2"></div>
+        <p>Démarrage de la session interactive...</p>
+      </div>
+    );
+  }
+  
+  if (error) {
+    return (
+      <div className="p-4 bg-red-50 text-red-700 rounded border border-red-200">
+        <h4 className="font-semibold">Erreur</h4>
+        <p>{error}</p>
+      </div>
+    );
+  }
+  
+  return (
+    <div>
+      <div className="bg-black rounded-md overflow-hidden h-96 flex flex-col">
+        <div className="bg-gray-800 text-gray-200 p-2 text-sm flex justify-between">
+          <span>Terminal interactif</span>
+          <a 
+            href={`http://${window.location.hostname}:4200/`} 
+            target="_blank" 
+            rel="noopener noreferrer" 
+            className="text-blue-400 hover:text-blue-300"
+          >
+            Ouvrir dans un nouvel onglet
+          </a>
+        </div>
         <iframe 
-          src={novncUrl}
-          className="w-full h-full"
-          title="Session VNC"
-          allow="clipboard-read; clipboard-write"
+          src={`http://${window.location.hostname}:4200/`}
+          className="flex-1 w-full"
+          style={{ border: 'none' }}
+          title="Terminal interactif"
         />
       </div>
-      
-      <div className="text-sm text-gray-500">
-        <p>Vous pouvez également vous connecter directement avec un client VNC:</p>
-        <code className="bg-gray-100 p-1 rounded">
-          {`${vncInfo.host}:${vncInfo.vnc_port}`}
-        </code>
+      <div className="mt-2 text-sm text-gray-600">
+        <p>
+          Ce terminal vous permet d'exécuter des commandes shell dans l'environnement d'analyse.
+        </p>
       </div>
     </div>
   );
@@ -398,7 +485,7 @@ function StartInteractiveButton() {
   if (sessionId) {
     return (
       <div className="p-4 bg-white rounded shadow mb-4">
-        <VncSession fileId={sessionId} />
+        <TerminalSession fileId={sessionId} />
       </div>
     );
   }

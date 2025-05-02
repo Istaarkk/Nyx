@@ -1,0 +1,29 @@
+{
+  "metadata": {
+    "filename": "test.sh",
+    "filesize": 43,
+    "hashes": {
+      "md5": "e7771528513a0cb5d5c964ecacd820b1",
+      "sha1": "5793182f23d711afff5e1b256ffc239b80ec76e1",
+      "sha256": "3f605ae0c33bf1af22692bd83c8eea0960cecaed1aa4e5df17e0c56d90c3ee8c"
+    },
+    "analysis_timestamp": "2025-05-02T15:21:09.139843"
+  },
+  "tools": {
+    "file": {
+      "stdout": "/app/uploads/f9861b51-3b72-4670-a319-e080ca1105e3/test.sh: Bourne-Again shell script, ASCII text executable\n",
+      "stderr": "",
+      "returncode": 0
+    },
+    "strings": {
+      "stdout": "#!/bin/bash\\necho 'Test file for analysis'\n",
+      "stderr": "",
+      "returncode": 0
+    },
+    "binwalk": {
+      "stdout": "\nDECIMAL       HEXADECIMAL     DESCRIPTION\n--------------------------------------------------------------------------------\n0             0x0             Executable script, shebang: \"/bin/bash\\necho 'Test file for analysis'\"\n\n",
+      "stderr": "",
+      "returncode": 0
+    }
+  }
+}

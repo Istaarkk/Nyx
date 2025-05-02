@@ -1,0 +1,29 @@
+{
+  "metadata": {
+    "filename": "a.py",
+    "filesize": 0,
+    "hashes": {
+      "md5": "d41d8cd98f00b204e9800998ecf8427e",
+      "sha1": "da39a3ee5e6b4b0d3255bfef95601890afd80709",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "analysis_timestamp": "2025-05-02T13:36:21.545438"
+  },
+  "tools": {
+    "file": {
+      "stdout": "/app/uploads/ae4f4961-6297-470e-b9aa-c612fafa1286/a.py: empty\n",
+      "stderr": "",
+      "returncode": 0
+    },
+    "strings": {
+      "stdout": "",
+      "stderr": "",
+      "returncode": 0
+    },
+    "binwalk": {
+      "stdout": "\nDECIMAL       HEXADECIMAL     DESCRIPTION\n--------------------------------------------------------------------------------\n\n",
+      "stderr": "",
+      "returncode": 0
+    }
+  }
+}

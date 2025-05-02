@@ -1,0 +1,29 @@
+{
+  "metadata": {
+    "filename": "aarchibald",
+    "filesize": 9744,
+    "hashes": {
+      "md5": "7144feaecb4fc93d57cdfd5110cace8f",
+      "sha1": "68cb18b892f67f6854affb246a0592cb67b5784a",
+      "sha256": "7bd391278ea9cce68c1c9df7ff9b5c31fab88bf194f5a6c8feefceac25a4da1e"
+    },
+    "analysis_timestamp": "2025-05-02T13:42:12.429883"
+  },
+  "tools": {
+    "file": {
+      "stdout": "/app/uploads/96a7cb6c-2729-40dc-b917-3ceba7db2b40/aarchibald: ELF 64-bit LSB shared object, ARM aarch64, version 1 (SYSV), dynamically linked, interpreter /lib/ld-linux-aarch64.so.1, for GNU/Linux 3.7.0, BuildID[sha1]=d8483190f176c46874dd383c62e36ee970712b09, not stripped\n",
+      "stderr": "",
+      "returncode": 0
+    },
+    "strings": {
+      "stdout": "/lib/ld-linux-aarch64.so.1\npq+\t\nlibc.so.6\nfflush\nstrncmp\nputs\nabort\nstdin\nfgets\nsystem\n__cxa_finalize\n__libc_start_main\n__libc_csu_fini\n_ITM_deregisterTMCloneTable\n__gmon_start__\n__libc_csu_init\n_Jv_RegisterClasses\n_ITM_registerTMCloneTable\nGLIBC_2.17\n`bA9@\n!h`8\n\"h 8\nPlease enter your password:\neCfSDFwEeAYDr\nWelcome back!\nEntering debug mode\n/bin/dash\nSorry, that's not the correct password.\nBye.\nGCC: (Debian 6.3.0-18) 6.3.0 20170516\n/usr/lib/gcc-cross/aarch64-linux-gnu/6/../../../../aarch64-linux-gnu/lib/../lib/Scrt1.o\n/usr/lib/gcc-cross/aarch64-linux-gnu/6/../../../../aarch64-linux-gnu/lib/../lib/crti.o\ncall_weak_fn\n/usr/lib/gcc-cross/aarch64-linux-gnu/6/../../../../aarch64-linux-gnu/lib/../lib/crtn.o\ncrtstuff.c\n__JCR_LIST__\nderegister_tm_clones\n__do_global_dtors_aux\ncompleted.7433\n__do_global_dtors_aux_fini_array_entry\nframe_dummy\n__frame_dummy_init_array_entry\naarchibald.c\nelf-init.oS\n__FRAME_END__\n__JCR_END__\n__init_array_end\n_DYNAMIC\n__init_array_start\n_GLOBAL_OFFSET_TABLE_\n__libc_csu_fini\n_ITM_deregisterTMCloneTable\n__bss_start__\n__cxa_finalize@@GLIBC_2.17\n_edata\n__bss_end__\nstrncmp@@GLIBC_2.17\n__libc_start_main@@GLIBC_2.17\n__data_start\nsystem@@GLIBC_2.17\nstdin@@GLIBC_2.17\n__gmon_start__\n__dso_handle\nabort@@GLIBC_2.17\n_IO_stdin_used\nputs@@GLIBC_2.17\n__libc_csu_init\n__end__\n__bss_start\nmain\nfflush@@GLIBC_2.17\n_Jv_RegisterClasses\n__TMC_END__\n_ITM_registerTMCloneTable\nfgets@@GLIBC_2.17\n.symtab\n.strtab\n.shstrtab\n.interp\n.note.ABI-tag\n.note.gnu.build-id\n.gnu.hash\n.dynsym\n.dynstr\n.gnu.version\n.gnu.version_r\n.rela.dyn\n.rela.plt\n.init\n.text\n.fini\n.rodata\n.eh_frame\n.init_array\n.fini_array\n.jcr\n.dynamic\n.got\n.got.plt\n.data\n.bss\n.comment\n",
+      "stderr": "",
+      "returncode": 0
+    },
+    "binwalk": {
+      "stdout": "\nDECIMAL       HEXADECIMAL     DESCRIPTION\n--------------------------------------------------------------------------------\n0             0x0             ELF, 64-bit LSB shared object, version 1 (SYSV)\n6649          0x19F9          Unix path: /usr/lib/gcc-cross/aarch64-linux-gnu/6/../../../../aarch64-linux-gnu/lib/../lib/Scrt1.o\n\n",
+      "stderr": "",
+      "returncode": 0
+    }
+  }
+}

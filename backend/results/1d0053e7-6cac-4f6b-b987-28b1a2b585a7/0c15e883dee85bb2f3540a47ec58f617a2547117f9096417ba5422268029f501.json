@@ -1,0 +1,29 @@
+{
+  "metadata": {
+    "filename": "test.bin",
+    "filesize": 10,
+    "hashes": {
+      "md5": "39a870a194a787550b6b5d1f49629236",
+      "sha1": "a5105d3fcba551031e7abdb25f9bbdb2ad3a9ffa",
+      "sha256": "0c15e883dee85bb2f3540a47ec58f617a2547117f9096417ba5422268029f501"
+    },
+    "analysis_timestamp": "2025-05-02T13:25:24.463929"
+  },
+  "tools": {
+    "file": {
+      "stdout": "/app/uploads/1d0053e7-6cac-4f6b-b987-28b1a2b585a7/test.bin: ASCII text\n",
+      "stderr": "",
+      "returncode": 0
+    },
+    "strings": {
+      "stdout": "test data\n",
+      "stderr": "",
+      "returncode": 0
+    },
+    "binwalk": {
+      "stdout": "\nDECIMAL       HEXADECIMAL     DESCRIPTION\n--------------------------------------------------------------------------------\n\n",
+      "stderr": "",
+      "returncode": 0
+    }
+  }
+}

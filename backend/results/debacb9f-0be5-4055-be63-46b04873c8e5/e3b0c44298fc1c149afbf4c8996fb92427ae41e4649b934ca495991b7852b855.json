@@ -1,0 +1,29 @@
+{
+  "metadata": {
+    "filename": "writing",
+    "filesize": 0,
+    "hashes": {
+      "md5": "d41d8cd98f00b204e9800998ecf8427e",
+      "sha1": "da39a3ee5e6b4b0d3255bfef95601890afd80709",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "analysis_timestamp": "2025-05-02T13:14:55.610192"
+  },
+  "tools": {
+    "file": {
+      "stdout": "/app/uploads/debacb9f-0be5-4055-be63-46b04873c8e5/writing: empty\n",
+      "stderr": "",
+      "returncode": 0
+    },
+    "strings": {
+      "stdout": "",
+      "stderr": "",
+      "returncode": 0
+    },
+    "binwalk": {
+      "stdout": "\nDECIMAL       HEXADECIMAL     DESCRIPTION\n--------------------------------------------------------------------------------\n\n",
+      "stderr": "",
+      "returncode": 0
+    }
+  }
+}

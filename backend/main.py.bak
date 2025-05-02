@@ -1,0 +1,791 @@
+import os
+import uuid
+import shutil
+import json
+import subprocess
+import hashlib
+from typing import List, Optional, Dict, Any, Tuple
+from datetime import datetime
+from fastapi import FastAPI, File, UploadFile, HTTPException, BackgroundTasks
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
+from pydantic import BaseModel
+import logging
+import sqlite3
+import socket
+from pathlib import Path
+import threading
+import time
+
+# Configuration
+UPLOAD_DIR = os.path.abspath("./uploads")
+RESULTS_DIR = os.path.abspath("./results")
+DB_PATH = os.path.abspath("./db/analyzer.db")
+
+# Initialisation des répertoires
+os.makedirs(UPLOAD_DIR, exist_ok=True)
+os.makedirs(RESULTS_DIR, exist_ok=True)
+os.makedirs(os.path.dirname(DB_PATH), exist_ok=True)
+
+# Configuration du logging
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+    handlers=[logging.StreamHandler()]
+)
+logger = logging.getLogger(__name__)
+
+# Modèles Pydantic
+class FileAnalysis(BaseModel):
+    id: str
+    filename: str
+    status: str
+    upload_time: str
+    completion_time: Optional[str] = None
+    container_id: Optional[str] = None
+    file_hash: Optional[str] = None
+    container_info: Optional[dict] = None
+    analysis_type: Optional[str] = "auto"
+
+class AnalysisResult(BaseModel):
+    analysis_id: str
+    metadata: dict
+    tools_results: dict
+
+class InteractiveSession:
+    def __init__(self, id, status, start_time):
+        self.id = id
+        self.status = status
+        self.start_time = start_time
+        self.container_id = None
+        self.vnc_host = None
+        self.vnc_port = None
+        self.vnc_password = None
+
+class Session:
+    def __init__(self):
+        self.conn = sqlite3.connect(DB_PATH)
+        self.conn.row_factory = sqlite3.Row
+        self.cursor = self.conn.cursor()
+        # Ensure the interactive_sessions table exists
+        self.cursor.execute('''
+        CREATE TABLE IF NOT EXISTS interactive_sessions (
+            id TEXT PRIMARY KEY,
+            status TEXT,
+            start_time TEXT,
+            container_id TEXT,
+            vnc_host TEXT,
+            vnc_port INTEGER,
+            vnc_password TEXT
+        )
+        ''')
+        self.conn.commit()
+    
+    def __enter__(self):
+        return self
+    
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        self.conn.close()
+    
+    def add(self, interactive_session):
+        self.cursor.execute(
+            "INSERT INTO interactive_sessions (id, status, start_time) VALUES (?, ?, ?)",
+            (interactive_session.id, interactive_session.status, interactive_session.start_time.isoformat())
+        )
+        self.conn.commit()
+    
+    def commit(self):
+        self.conn.commit()
+    
+    def query(self, cls):
+        return SessionQuery(self, cls)
+
+class SessionQuery:
+    def __init__(self, session, cls):
+        self.session = session
+        self.cls = cls
+    
+    def filter(self, condition):
+        self.condition = condition
+        return self
+    
+    def first(self):
+        if self.cls == InteractiveSession and hasattr(self, 'condition'):
+            field_name, op, value = None, None, None
+            
+            # Extract the condition components (only handling simple equality for now)
+            for attr in dir(self.condition):
+                if not attr.startswith('__') and not callable(getattr(self.condition, attr)):
+                    field_name = attr
+                    value = getattr(self.condition, attr)
+            
+            if field_name and value:
+                self.session.cursor.execute(
+                    f"SELECT * FROM interactive_sessions WHERE {field_name} = ?",
+                    (value,)
+                )
+                row = self.session.cursor.fetchone()
+                if row:
+                    interactive_session = InteractiveSession(
+                        id=row['id'],
+                        status=row['status'],
+                        start_time=datetime.fromisoformat(row['start_time'])
+                    )
+                    interactive_session.container_id = row['container_id']
+                    interactive_session.vnc_host = row['vnc_host']
+                    interactive_session.vnc_port = row['vnc_port']
+                    interactive_session.vnc_password = row['vnc_password']
+                    return interactive_session
+        return None
+
+# Initialisation de l'application FastAPI
+app = FastAPI(title="Malware Analysis Platform")
+
+# Middleware CORS
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # En production, spécifiez les origines exactes
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+# Initialisation de la base de données
+def init_db():
+    conn = sqlite3.connect(DB_PATH)
+    cursor = conn.cursor()
+    cursor.execute('''
+    CREATE TABLE IF NOT EXISTS analyses (
+        id TEXT PRIMARY KEY,
+        filename TEXT,
+        status TEXT,
+        upload_time TEXT,
+        completion_time TEXT,
+        container_id TEXT,
+        file_hash TEXT,
+        container_info TEXT,
+        analysis_type TEXT DEFAULT 'auto'
+    )
+    ''')
+    conn.commit()
+    conn.close()
+
+# Fonction pour calculer les hashes d'un fichier
+def calculate_hashes(file_path):
+    with open(file_path, 'rb') as f:
+        content = f.read()
+    
+    return {
+        "md5": hashlib.md5(content).hexdigest(),
+        "sha1": hashlib.sha1(content).hexdigest(),
+        "sha256": hashlib.sha256(content).hexdigest()
+    }
+
+# Fonction pour exécuter une commande et récupérer le résultat
+def run_command(command, timeout=60):
+    try:
+        result = subprocess.run(
+            command, 
+            capture_output=True, 
+            text=True,
+            timeout=timeout,
+            check=False
+        )
+        return {
+            "stdout": result.stdout,
+            "stderr": result.stderr,
+            "returncode": result.returncode
+        }
+    except subprocess.TimeoutExpired:
+        return {
+            "stdout": "",
+            "stderr": f"Command timed out after {timeout} seconds",
+            "returncode": -1
+        }
+    except Exception as e:
+        return {
+            "stdout": "",
+            "stderr": str(e),
+            "returncode": -1
+        }
+
+# Fonction pour exécuter l'analyse directement sans Docker
+def run_analysis(file_id: str, file_path: str):
+    try:
+        # Préparation des répertoires pour ce job
+        job_upload_dir = os.path.join(UPLOAD_DIR, file_id)
+        job_results_dir = os.path.join(RESULTS_DIR, file_id)
+        
+        os.makedirs(job_upload_dir, exist_ok=True)
+        os.makedirs(job_results_dir, exist_ok=True)
+        
+        # Le fichier est déjà dans le bon répertoire, pas besoin de copie
+        filename = os.path.basename(file_path)
+        target_path = file_path
+        
+        # Mise à jour du statut
+        update_status(file_id, "running")
+        
+        # Analyse du fichier
+        try:
+            results = {
+                "metadata": {
+                    "filename": filename,
+                    "filesize": os.path.getsize(target_path),
+                    "hashes": calculate_hashes(target_path),
+                    "analysis_timestamp": datetime.now().isoformat()
+                },
+                "tools": {}
+            }
+            
+            # Analyse avec 'file'
+            results["tools"]["file"] = run_command(["file", target_path])
+            
+            # Extraction de strings
+            results["tools"]["strings"] = run_command(["strings", target_path])
+            
+            # Analyse avec binwalk si disponible
+            try:
+                results["tools"]["binwalk"] = run_command(["binwalk", "-B", target_path])
+            except:
+                results["tools"]["binwalk"] = {"stdout": "", "stderr": "Binwalk n'est pas disponible", "returncode": -1}
+            
+            # Enregistrement des résultats
+            result_filename = f"{results['metadata']['hashes']['sha256']}.json"
+            result_path = os.path.join(job_results_dir, result_filename)
+            
+            with open(result_path, 'w') as f:
+                json.dump(results, f, indent=2)
+            
+            # Stockage du hash
+            update_file_hash(file_id, results["metadata"]["hashes"]["sha256"])
+            
+            # Création du fichier 'completed' pour indiquer que l'analyse est terminée
+            with open(os.path.join(job_results_dir, "completed"), 'w') as f:
+                f.write(result_filename)
+            
+            # Mise à jour du statut
+            update_status(file_id, "completed")
+            
+            return {"success": True, "error": None}
+            
+        except Exception as e:
+            logger.error(f"Erreur pendant l'analyse du fichier {filename}: {str(e)}")
+            update_status(file_id, "failed")
+            return {"success": False, "error": str(e)}
+                
+    except Exception as e:
+        logger.error(f"Erreur lors de l'analyse {file_id}: {str(e)}")
+        update_status(file_id, "failed")
+        return {"success": False, "error": str(e)}
+
+# Fonctions d'accès à la base de données
+def save_analysis(file_id: str, filename: str, analysis_type="auto"):
+    conn = sqlite3.connect(DB_PATH)
+    cursor = conn.cursor()
+    cursor.execute(
+        "INSERT INTO analyses (id, filename, status, upload_time, analysis_type) VALUES (?, ?, ?, ?, ?)",
+        (file_id, filename, "pending", datetime.now().isoformat(), analysis_type)
+    )
+    conn.commit()
+    conn.close()
+
+def update_status(file_id: str, status: str):
+    conn = sqlite3.connect(DB_PATH)
+    cursor = conn.cursor()
+    
+    if status in ("completed", "failed"):
+        cursor.execute(
+            "UPDATE analyses SET status = ?, completion_time = ? WHERE id = ?",
+            (status, datetime.now().isoformat(), file_id)
+        )
+    else:
+        cursor.execute(
+            "UPDATE analyses SET status = ? WHERE id = ?",
+            (status, file_id)
+        )
+    
+    conn.commit()
+    conn.close()
+
+def update_container_id(file_id: str, container_id: str):
+    conn = sqlite3.connect(DB_PATH)
+    cursor = conn.cursor()
+    cursor.execute(
+        "UPDATE analyses SET container_id = ? WHERE id = ?",
+        (container_id, file_id)
+    )
+    conn.commit()
+    conn.close()
+
+def update_file_hash(file_id: str, file_hash: str):
+    conn = sqlite3.connect(DB_PATH)
+    cursor = conn.cursor()
+    cursor.execute(
+        "UPDATE analyses SET file_hash = ? WHERE id = ?",
+        (file_hash, file_id)
+    )
+    conn.commit()
+    conn.close()
+
+def update_container_info(file_id: str, container_id: str, container_info: dict):
+    conn = sqlite3.connect(DB_PATH)
+    cursor = conn.cursor()
+    cursor.execute(
+        "UPDATE analyses SET container_id = ?, container_info = ? WHERE id = ?",
+        (container_id, json.dumps(container_info), file_id)
+    )
+    conn.commit()
+    conn.close()
+
+def get_analysis(file_id: str) -> Optional[FileAnalysis]:
+    conn = sqlite3.connect(DB_PATH)
+    conn.row_factory = sqlite3.Row
+    cursor = conn.cursor()
+    cursor.execute("SELECT * FROM analyses WHERE id = ?", (file_id,))
+    result = cursor.fetchone()
+    conn.close()
+    
+    if result:
+        data = dict(result)
+        if data.get("container_info") and isinstance(data["container_info"], str):
+            data["container_info"] = json.loads(data["container_info"])
+        return FileAnalysis(**data)
+    return None
+
+def get_all_analyses() -> List[FileAnalysis]:
+    conn = sqlite3.connect(DB_PATH)
+    conn.row_factory = sqlite3.Row
+    cursor = conn.cursor()
+    cursor.execute("SELECT * FROM analyses ORDER BY upload_time DESC")
+    rows = cursor.fetchall()
+    conn.close()
+    
+    result = []
+    for row in rows:
+        data = dict(row)
+        if data.get("container_info") and isinstance(data["container_info"], str):
+            try:
+                data["container_info"] = json.loads(data["container_info"])
+            except:
+                # Si le JSON est invalide, définir à None pour éviter les erreurs
+                data["container_info"] = None
+        result.append(FileAnalysis(**data))
+    
+    return result
+
+# Routes de l'API
+@app.on_event("startup")
+async def startup_event():
+    """Initialiser la BDD et vérifier les dépendances au démarrage"""
+    init_db()
+    
+    # Vérifier que nous avons accès au socket Docker
+    socket_path = "/var/run/docker.sock"
+    if os.path.exists(socket_path):
+        try:
+            # Vérifier qu'on peut exécuter une commande Docker
+            docker_test = run_command(["docker", "version"])
+            if docker_test["returncode"] != 0:
+                logger.warning(f"Docker installé mais permissions insuffisantes ou commande non trouvée. Message: {docker_test['stderr']}")
+                logger.warning("Utilisation du mode d'analyse directe sans Docker.")
+            else:
+                logger.info("Docker disponible et fonctionnel")
+        except Exception as e:
+            logger.warning(f"Impossible d'utiliser Docker: {str(e)}")
+            logger.warning("Utilisation du mode d'analyse directe sans Docker.")
+    else:
+        logger.warning(f"Socket Docker non trouvé à {socket_path}")
+        logger.warning("Utilisation du mode d'analyse directe sans Docker.")
+
+@app.get("/health")
+async def health_check():
+    """Endpoint de vérification de l'état de santé de l'API."""
+    return {"status": "ok"}
+
+@app.post("/upload", response_model=FileAnalysis)
+async def upload_file(background_tasks: BackgroundTasks, file: UploadFile = File(...)):
+    try:
+        # Création d'un ID unique pour cette analyse
+        file_id = str(uuid.uuid4())
+    
+        # Création du répertoire pour ce fichier
+        upload_dir = os.path.join(UPLOAD_DIR, file_id)
+        os.makedirs(upload_dir, exist_ok=True)
+        
+        # Sauvegarde du fichier
+        file_path = os.path.join(upload_dir, file.filename)
+        with open(file_path, "wb") as f:
+            content = await file.read()
+            f.write(content)
+        
+        # Enregistrement dans la BDD
+        save_analysis(file_id, file.filename)
+    
+        # Lancement de l'analyse en arrière-plan
+        background_tasks.add_task(run_analysis, file_id, file_path)
+    
+        return get_analysis(file_id)
+    except Exception as e:
+        logger.error(f"Erreur lors de l'upload: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/files", response_model=List[FileAnalysis])
+async def get_files():
+    """Récupération de toutes les analyses."""
+    return get_all_analyses()
+
+@app.get("/files/{file_id}", response_model=FileAnalysis)
+async def get_file(file_id: str):
+    """Récupération des détails d'une analyse spécifique."""
+    analysis = get_analysis(file_id)
+    if not analysis:
+        raise HTTPException(status_code=404, detail="Analyse non trouvée")
+    return analysis
+
+@app.get("/files/{file_id}/results")
+async def get_results(file_id: str):
+    """Récupération des résultats d'une analyse."""
+    analysis = get_analysis(file_id)
+    if not analysis:
+        raise HTTPException(status_code=404, detail="Analyse non trouvée")
+    
+    if analysis.status != "completed":
+        return {
+            "analysis_id": file_id,
+            "status": analysis.status,
+            "message": "L'analyse n'est pas encore terminée."
+        }
+    
+    # Recherche du fichier de résultats
+    job_results_dir = os.path.join(RESULTS_DIR, file_id)
+    
+    if not os.path.exists(job_results_dir):
+        raise HTTPException(status_code=404, detail="Répertoire de résultats non trouvé")
+    
+    completed_file = os.path.join(job_results_dir, "completed")
+    if not os.path.exists(completed_file):
+        return {
+            "analysis_id": file_id,
+            "status": "error",
+            "message": "Fichier de complétion non trouvé."
+        }
+    
+    with open(completed_file, 'r') as f:
+        result_filename = f.read().strip()
+    
+    result_path = os.path.join(job_results_dir, result_filename)
+    if not os.path.exists(result_path):
+        return {
+            "analysis_id": file_id,
+            "status": "error",
+            "message": "Fichier de résultats non trouvé."
+        }
+    
+    with open(result_path, 'r') as f:
+        results = json.load(f)
+    
+    return {
+        "analysis_id": file_id,
+        "status": "completed",
+        "metadata": results.get("metadata", {}),
+        "tools_results": results.get("tools", {})
+    }
+
+@app.get("/files/{file_id}/assembly")
+async def get_assembly(file_id: str):
+    """Récupérer le code assembleur d'un fichier analysé"""
+    analysis = get_analysis(file_id)
+    if not analysis:
+        raise HTTPException(status_code=404, detail="Analyse non trouvée")
+    
+    if analysis.status != "completed":
+        raise HTTPException(status_code=400, detail="L'analyse n'est pas terminée")
+    
+    # Récupérer le chemin du fichier d'upload
+    job_upload_dir = os.path.join(UPLOAD_DIR, file_id)
+    
+    # Trouver le fichier dans le répertoire d'upload
+    files = os.listdir(job_upload_dir)
+    if not files:
+        raise HTTPException(status_code=404, detail="Fichier original non trouvé")
+    
+    file_path = os.path.join(job_upload_dir, files[0])
+    
+    # Détecter le type de fichier
+    file_type = detect_file_type(file_path)
+    
+    # Obtenir le code assembleur
+    assembly_code = get_assembly_code(file_path, file_type)
+    
+    return {
+        "file_id": file_id,
+        "file_name": analysis.filename,
+        "file_type": file_type,
+        "assembly_code": assembly_code
+    }
+
+@app.post("/files/{file_id}/restart", response_model=FileAnalysis)
+async def restart_analysis(file_id: str, background_tasks: BackgroundTasks):
+    """Redémarrage d'une analyse."""
+    analysis = get_analysis(file_id)
+    if not analysis:
+        raise HTTPException(status_code=404, detail="Analyse non trouvée")
+    
+    # Vérification que le fichier est toujours disponible
+    file_path = os.path.join(UPLOAD_DIR, analysis.filename)
+    if not os.path.exists(file_path):
+        job_upload_dir = os.path.join(UPLOAD_DIR, file_id)
+        file_path = os.path.join(job_upload_dir, analysis.filename)
+        if not os.path.exists(file_path):
+            raise HTTPException(status_code=404, detail="Fichier à analyser non trouvé")
+    
+    # Mise à jour du statut
+    update_status(file_id, "pending")
+    
+    # Lancement de l'analyse en arrière-plan
+    background_tasks.add_task(run_analysis, file_id, file_path)
+    
+    return get_analysis(file_id)
+
+@app.post("/interactive", response_model=FileAnalysis)
+async def start_interactive_session(background_tasks: BackgroundTasks):
+    """Starts an interactive session with a browser terminal in the backend container."""
+    
+    session_id = str(uuid.uuid4())
+        
+    # Save to database
+    with Session() as session:
+        interactive_session = InteractiveSession(
+            id=session_id,
+            status="starting",
+            start_time=datetime.now(),
+        )
+        session.add(interactive_session)
+        session.commit()
+    
+    # Launch an interactive terminal session
+    logger.info(f"Starting interactive session with ID: {session_id}")
+    
+    # Launch in a separate thread to avoid blocking
+    def setup_session():
+        try:
+            # Install necessary packages
+            logger.info("Installing necessary packages...")
+            run_command(["apt-get", "update", "-y"])
+            run_command(["apt-get", "install", "-y", "shellinabox"])
+            
+            # Kill any existing shellinabox instance
+            run_command(["bash", "-c", "pkill shellinaboxd || true"])
+            
+            # Start shellinabox on port 4200
+            result = run_command([
+                "shellinaboxd", 
+                "--no-beep", 
+                "--disable-ssl",
+                "--port=4200",
+                "--css=/etc/shellinabox/options-enabled/00_White On Black.css"
+            ])
+            
+            if result["returncode"] != 0:
+                logger.error(f"Failed to start shellinabox: {result['stderr']}")
+                update_session_status(session_id, "error")
+                return
+                
+            # Get server IP
+            host_ip = "localhost"
+            try:
+                # Try to get the container's IP address
+                host_info = run_command(["hostname", "-I"])
+                if host_info["returncode"] == 0 and host_info["stdout"].strip():
+                    host_ip = host_info["stdout"].strip().split()[0]
+                else:
+                    s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+                    s.connect(("8.8.8.8", 80))
+                    host_ip = s.getsockname()[0]
+                    s.close()
+            except:
+                logger.warning("Could not determine container IP, falling back to localhost")
+            
+            # Check if shellinabox is running
+            check_cmd = run_command(["bash", "-c", "ps aux | grep -v grep | grep shellinabox"])
+            if "shellinabox" not in check_cmd["stdout"]:
+                logger.error("shellinabox is not running")
+                update_session_status(session_id, "error")
+                return
+                
+            # Update session information
+            logger.info(f"Interactive session ready with host IP: {host_ip}")
+            update_session_info(session_id, host_ip, 4200, "")
+            update_session_status(session_id, "running")
+        
+    except Exception as e:
+        logger.error(f"Error setting up interactive session: {str(e)}")
+        update_session_status(session_id, "error")
+    
+    # Start the setup in a thread
+    setup_thread = threading.Thread(target=setup_session)
+    setup_thread.daemon = True
+    setup_thread.start()
+    
+    # Create the file analysis record
+    save_analysis(session_id, "interactive_session.txt", analysis_type="interactive")
+    
+    # Update file analysis container info
+    container_info = {
+        'container_id': "backend-terminal",
+        'terminal_host': "localhost",  # Will be updated by the thread
+        'terminal_port': 4200,
+        'info': "Terminal web interactif"
+    }
+    update_container_info(session_id, "backend-terminal", container_info)
+    
+    # Return response
+    return {
+        "id": session_id,
+        "filename": "interactive_session.txt",
+        "status": "starting",
+        "upload_time": datetime.now().isoformat(),
+        "container_id": "backend-terminal",
+        "analysis_type": "interactive",
+    }
+
+def update_session_status(session_id, status):
+    with Session() as session:
+        session.cursor.execute(
+            "UPDATE interactive_sessions SET status = ? WHERE id = ?",
+            (status, session_id)
+        )
+        session.commit()
+
+def update_session_info(session_id, host, port, password):
+    with Session() as session:
+        session.cursor.execute(
+            "UPDATE interactive_sessions SET vnc_host = ?, vnc_port = ?, vnc_password = ?, container_id = ? WHERE id = ?",
+            (host, port, password, "backend-terminal", session_id)
+        )
+        session.commit()
+    
+    # Also update the file analysis record
+    container_info = {
+        'container_id': "backend-terminal",
+        'terminal_host': host,
+        'terminal_port': port,
+        'info': "Terminal web interactif"
+    }
+    update_container_info(session_id, "backend-terminal", container_info)
+    update_status(session_id, "running")
+
+@app.get("/files/{file_id}/vnc")
+async def get_vnc_info(file_id: str):
+    """Get terminal connection information for an interactive session."""
+    
+    with Session() as session:
+        session.cursor.execute(
+            "SELECT * FROM interactive_sessions WHERE id = ?",
+            (file_id,)
+        )
+        row = session.cursor.fetchone()
+        
+        if not row:
+            return {
+                "status": "error",
+                "message": "Session non trouvée"
+            }
+        
+        # Check if shellinabox is running
+        check_cmd = run_command(["bash", "-c", "ps aux | grep -v grep | grep shellinabox"])
+        is_running = "shellinabox" in check_cmd["stdout"]
+        
+        # Return connection info
+    return {
+            "status": "running" if is_running else "error",
+            "terminal_host": row["vnc_host"] or "localhost",
+            "terminal_port": row["vnc_port"] or 4200,
+            "terminal_url": f"http://{row['vnc_host'] or 'localhost'}:{row['vnc_port'] or 4200}/",
+            "message": "Terminal web prêt à être utilisé" if is_running else "Erreur: terminal web non disponible"
+        }
+
+# Fonction pour analyser le type de fichier binaire
+def detect_file_type(file_path):
+    file_cmd = run_command(["file", file_path])
+    file_output = file_cmd["stdout"].lower()
+    
+    if "elf" in file_output:
+        return "ELF"
+    elif "pe32" in file_output or "pe32+" in file_output:
+        if "pe32+" in file_output:
+            return "PE64"
+        return "PE32"
+    elif "mach-o" in file_output:
+        return "MACHO"
+    elif "nasm" in file_output or "assembly" in file_output:
+        return "NASM"
+    elif "shell script" in file_output or "bash" in file_output:
+        return "Shell"
+    elif "ascii text" in file_output or "text" in file_output:
+        # Vérifier les extensions
+        _, ext = os.path.splitext(file_path)
+        ext = ext.lower()
+        if ext in ['.nasm', '.asm', '.s']:
+            return "NASM"
+        elif ext in ['.sh', '.bash']:
+            return "Shell"
+        elif ext in ['.c', '.cpp', '.h', '.hpp']:
+            return "C/C++"
+        elif ext in ['.py', '.pyc']:
+            return "Python"
+        return "Text"
+    else:
+        return "Unknown"
+
+# Fonction pour obtenir le code assembleur d'un fichier binaire
+def get_assembly_code(file_path, file_type):
+    if file_type == "ELF":
+        # Utiliser objdump pour les fichiers ELF
+        result = run_command(["objdump", "-d", "-M", "intel", file_path], timeout=120)
+        if result["stdout"].strip():
+            return result["stdout"]
+        # Fallback à objdump simple si -M intel n'est pas supporté ou s'il n'y a pas de sections à désassembler
+        result = run_command(["objdump", "-d", file_path], timeout=120)
+        if result["stdout"].strip():
+            return result["stdout"]
+        # Si toujours rien, essayer -D pour désassembler tout
+        result = run_command(["objdump", "-D", file_path], timeout=120)
+        return result["stdout"] or "Pas de code assembleur trouvé dans ce fichier ELF"
+    elif file_type in ["PE32", "PE64"]:
+        # Utiliser objdump pour les fichiers PE
+        result = run_command(["objdump", "-d", "-M", "intel", file_path], timeout=120)
+        if result["stdout"].strip():
+            return result["stdout"]
+        result = run_command(["objdump", "-d", file_path], timeout=120)
+        return result["stdout"] or "Pas de code assembleur trouvé dans ce fichier PE"
+    elif file_type == "MACHO":
+        # Utiliser otool pour les fichiers Mach-O si disponible, sinon objdump
+        try:
+            result = run_command(["otool", "-tv", file_path], timeout=120)
+            if result["stdout"].strip():
+                return result["stdout"]
+        except:
+            pass
+        result = run_command(["objdump", "-d", "-M", "intel", file_path], timeout=120)
+        return result["stdout"] or "Pas de code assembleur trouvé dans ce fichier Mach-O"
+    elif file_type == "NASM":
+        # Pour les fichiers NASM, retourner simplement le contenu du fichier
+        with open(file_path, 'r', errors='replace') as f:
+            return f.read()
+    elif file_type in ["Shell", "Text", "C/C++", "Python"]:
+        # Pour les fichiers texte, retourner le contenu avec syntaxe
+        with open(file_path, 'r', errors='replace') as f:
+            content = f.read()
+        return f"# Code source ({file_type}):\n\n{content}"
+    else:
+        # Pour les types inconnus, essayer objdump
+        result = run_command(["objdump", "-d", "-M", "intel", file_path], timeout=120)
+        if result["returncode"] == 0 and result["stdout"].strip():
+            return result["stdout"]
+        # Sinon hex dump comme dernier recours
+        result = run_command(["hexdump", "-C", file_path], timeout=120)
+        if result["returncode"] == 0 and result["stdout"].strip():
+            return f"# Hexdump du fichier (type inconnu):\n\n{result['stdout']}"
+        return "Impossible d'extraire le code assembleur pour ce type de fichier." 
